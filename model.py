@@ -25,7 +25,6 @@ class SSLModel(nn.Module):
         
         cp_path = 'E:/SSL_Anti-spoofing-new/xlsr2_300m.pt'   # Change the pre-trained XLSR model path.
         model, cfg,task = fairseq.checkpoint_utils.load_model_ensemble_and_task([cp_path])
-        # model = torch.load(cp_path)
         self.model = model[0]
         self.device=device
         self.out_dim = 1024
@@ -47,7 +46,6 @@ class SSLModel(nn.Module):
             else:
                 input_tmp = input_data
                 
-            # [batch, length, dim]
             emb = self.model(input_tmp, mask=False, features_only=True)['x']
         return emb
 
@@ -196,18 +194,11 @@ class HtrgGraphAttentionLayer(nn.Module):
         x1  :(#bs, #node, #dim)
         x2  :(#bs, #node, #dim)
         '''
-        #print('x1',x1.shape)
-        #print('x2',x2.shape)
         num_type1 = x1.size(1)
         num_type2 = x2.size(1)
-        #print('num_type1',num_type1)
-        #print('num_type2',num_type2)
         x1 = self.proj_type1(x1)
-        #print('proj_type1',x1.shape)
         x2 = self.proj_type2(x2)
-        #print('proj_type2',x2.shape)
         x = torch.cat([x1, x2], dim=1)
-        #print('Concat x1 and x2',x.shape)
         
         if master is None:
             master = torch.mean(x, dim=1, keepdim=True)
@@ -217,21 +208,16 @@ class HtrgGraphAttentionLayer(nn.Module):
 
         # derive attention map
         att_map = self._derive_att_map(x, num_type1, num_type2)
-        #print('master',master.shape)
         # directional edge for master node
         master = self._update_master(x, master)
-        #print('master',master.shape)
         # projection
         x = self._project(x, att_map)
-        #print('proj x',x.shape)
         # apply batch norm
         x = self._apply_BN(x)
         x = self.act(x)
 
         x1 = x.narrow(1, 0, num_type1)
-        #print('x1',x1.shape)
         x2 = x.narrow(1, num_type1, num_type2)
-        #print('x2',x2.shape)
         return x1, x2, master
 
     def _update_master(self, x, master):
@@ -414,15 +400,11 @@ class Residual_block(nn.Module):
         else:
             out = x
 
-        #print('out',out.shape)
         out = self.conv1(x)
 
-        #print('aft conv1 out',out.shape)
         out = self.bn2(out)
         out = self.selu(out)
-        # print('out',out.shape)
         out = self.conv2(out)
-        #print('conv2 out',out.shape)
         
         if self.downsample:
             identity = self.conv_downsample(identity)
@@ -508,60 +490,54 @@ class Model(nn.Module):
 
     def forward(self, x):
         #-------pre-trained Wav2vec model fine tunning ------------------------##
-        x_ssl_feat = self.ssl_model.extract_feat(x.squeeze(-1))#(10,64600)-->(10,201,1024)
-        x = self.LL(x_ssl_feat) #(10,201,1024)-->(10,201,128)#(bs,frame_number,feat_out_dim)
+        x_ssl_feat = self.ssl_model.extract_feat(x.squeeze(-1))
+        x = self.LL(x_ssl_feat) 
         
         # post-processing on front-end features
-        x = x.transpose(1, 2)  #(10,201,128)-->(10,128,201) #(bs,feat_out_dim,frame_number)
-        x = x.unsqueeze(dim=1)#(10,128,201)-->(10,1,128,201) # add channel
-        x = F.max_pool2d(x, (3, 3))#(10,1,128,201)-->(10,1,42,67)
-        x = self.first_bn(x)#(10,1,42,67)-->(10,1,42,67)
-        x = self.selu(x)#(10,1,42,67)-->(10,1,42,67)
+        x = x.transpose(1, 2)
+        x = x.unsqueeze(dim=1)
+        x = F.max_pool2d(x, (3, 3))
+        x = self.first_bn(x)
+        x = self.selu(x)
 
         # RawNet2-based encoder
-        x = self.encoder(x)#(10,1,42,67)-->(10,64,42,67)
+        x = self.encoder(x)
         x = self.first_bn1(x)
         x = self.selu(x)
         
-        w = self.attention(x)#(10,64,42,67)
+        w = self.attention(x)
         
         #------------SA for spectral feature-------------#
-        w1 = F.softmax(w,dim=-1)#(10,64,42,67)
-        m = torch.sum(x * w1, dim=-1)#(10,64,42,67)-->(10,64,42)
-        e_S = m.transpose(1, 2) + self.pos_S #(10,42,64)
+        w1 = F.softmax(w,dim=-1)
+        m = torch.sum(x * w1, dim=-1)
+        e_S = m.transpose(1, 2) + self.pos_S
         
         # graph module layer
-        gat_S = self.GAT_layer_S(e_S)#(10,42,64)
-        out_S = self.pool_S(gat_S) #(10,21,64) # (#bs, #node, #dim)
+        gat_S = self.GAT_layer_S(e_S)
+        out_S = self.pool_S(gat_S)
         
         #------------SA for temporal feature-------------#
-        w2 = F.softmax(w,dim=-2)#(10,64,42,67)
-        m1 = torch.sum(x * w2, dim=-2)#(10,64,67)
+        w2 = F.softmax(w,dim=-2)
+        m1 = torch.sum(x * w2, dim=-2)
      
-        e_T = m1.transpose(1, 2)#(10,67,64)
+        e_T = m1.transpose(1, 2)
        
         # graph module layer
-        gat_T = self.GAT_layer_T(e_T)#(10,67,64)
-        out_T = self.pool_T(gat_T)#(10,33,64)
+        gat_T = self.GAT_layer_T(e_T)
+        out_T = self.pool_T(gat_T)
         
         # learnable master node
-        master1 = self.master1.expand(x.size(0), -1, -1)#（10,1,64）
-        master2 = self.master2.expand(x.size(0), -1, -1)#（10,1,64）
+        master1 = self.master1.expand(x.size(0), -1, -1)
+        master2 = self.master2.expand(x.size(0), -1, -1)
 
         # inference 1
         out_T1, out_S1, master1 = self.HtrgGAT_layer_ST11(
             out_T, out_S, master=self.master1)
-        #out_T1:(10,33,32)
-        # out_S1:(10,21,32)
-        # master1:(10,1,32)
-        out_S1 = self.pool_hS1(out_S1)#(10,10,32)
-        out_T1 = self.pool_hT1(out_T1)#(10,16,32)
+        out_S1 = self.pool_hS1(out_S1)
+        out_T1 = self.pool_hT1(out_T1)
 
         out_T_aug, out_S_aug, master_aug = self.HtrgGAT_layer_ST12(
             out_T1, out_S1, master=master1)
-        #out_T_aug:(10,16,32)
-        # out_S_aug:（10,10,32）
-        # master_aug:（10,1,32）
         out_T1 = out_T1 + out_T_aug
         out_S1 = out_S1 + out_S_aug
         master1 = master1 + master_aug
@@ -569,43 +545,37 @@ class Model(nn.Module):
         # inference 2
         out_T2, out_S2, master2 = self.HtrgGAT_layer_ST21(
             out_T, out_S, master=self.master2)
-        #out_T2：（10,33,32）
-        # out_S2：（10,21,32）
-        # master2：（10,1,32）
-        out_S2 = self.pool_hS2(out_S2)#（10,10,32）
-        out_T2 = self.pool_hT2(out_T2)#(10,16,32)
+        out_S2 = self.pool_hS2(out_S2)
+        out_T2 = self.pool_hT2(out_T2)
 
         out_T_aug, out_S_aug, master_aug = self.HtrgGAT_layer_ST22(
             out_T2, out_S2, master=master2)
-        #out_T_aug:(10,16,32)
-        # out_S_aug:（10,10,32）
-        # master_aug:（10,1,32）
         out_T2 = out_T2 + out_T_aug
         out_S2 = out_S2 + out_S_aug
         master2 = master2 + master_aug
 
-        out_T1 = self.drop_way(out_T1)#(10,16,32)
-        out_T2 = self.drop_way(out_T2)#(10,16,32)
-        out_S1 = self.drop_way(out_S1)#(10,10,32)
-        out_S2 = self.drop_way(out_S2)#(10,10,32)
-        master1 = self.drop_way(master1)#(10,1,32)
-        master2 = self.drop_way(master2)#(10,1,32)
+        out_T1 = self.drop_way(out_T1)
+        out_T2 = self.drop_way(out_T2)
+        out_S1 = self.drop_way(out_S1)
+        out_S2 = self.drop_way(out_S2)
+        master1 = self.drop_way(master1)
+        master2 = self.drop_way(master2)
 
-        out_T = torch.max(out_T1, out_T2)#(10,16,32)
-        out_S = torch.max(out_S1, out_S2)#(10,10,32)
-        master = torch.max(master1, master2)#(10,1,32)
+        out_T = torch.max(out_T1, out_T2)
+        out_S = torch.max(out_S1, out_S2)
+        master = torch.max(master1, master2)
 
         # Readout operation
-        T_max, _ = torch.max(torch.abs(out_T), dim=1)#(10,32)
-        T_avg = torch.mean(out_T, dim=1)#(10,32)
+        T_max, _ = torch.max(torch.abs(out_T), dim=1)
+        T_avg = torch.mean(out_T, dim=1)
 
-        S_max, _ = torch.max(torch.abs(out_S), dim=1)#(10,32)
-        S_avg = torch.mean(out_S, dim=1)#(10,32)
+        S_max, _ = torch.max(torch.abs(out_S), dim=1)
+        S_avg = torch.mean(out_S, dim=1)
         
         last_hidden = torch.cat(
-            [T_max, T_avg, S_max, S_avg, master.squeeze(1)], dim=1)#(10,160)
+            [T_max, T_avg, S_max, S_avg, master.squeeze(1)], dim=1)
         
-        last_hidden = self.drop(last_hidden)#(10,160)
-        output = self.out_layer(last_hidden)#(10,2)
+        last_hidden = self.drop(last_hidden)
+        output = self.out_layer(last_hidden)
         
         return output
