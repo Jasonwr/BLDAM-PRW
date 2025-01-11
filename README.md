@@ -36,6 +36,7 @@ Our experiments are trained on 2019 LA training and evaluated on 2015 evaluation
 Download the XLSR models from [here](https://github.com/pytorch/fairseq/tree/main/examples/wav2vec/xlsr)
 
 ## Execute Demo
+Please change the address in Need to modify the path.txt first.
 ```
 cd myresult
 python test_dual.py
