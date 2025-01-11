@@ -16,17 +16,21 @@ $ pip install -r requirements.txt
 ## Experiments
 
 ### Dataset
-Our experiments are performed on the logical access (LA) and deepfake (DF) partition of the ASVspoof 2021 dataset (train on 2019 LA training and evaluate on 2021 LA and DF evaluation database).
+Our experiments are trained on 2019 LA training and evaluated on 2015 evaluation,2019 LA evaluation,2021 LA and DF evaluation and in the wild evaluation database.
 
-The ASVspoof 2019 dataset, which can can be downloaded from [here](https://datashare.is.ed.ac.uk/handle/10283/3336).
+[//]: # (The ASVspoof 2019 dataset, which can can be downloaded from [here]&#40;https://datashare.is.ed.ac.uk/handle/10283/3336&#41;.)
 
-The ASVspoof 2021 database is released on the zenodo site.
+[//]: # ()
+[//]: # (The ASVspoof 2021 database is released on the zenodo site.)
 
-LA [here](https://zenodo.org/record/4837263#.YnDIinYzZhE)
+[//]: # ()
+[//]: # (LA [here]&#40;https://zenodo.org/record/4837263#.YnDIinYzZhE&#41;)
 
-DF [here](https://zenodo.org/record/4835108#.YnDIb3YzZhE)
+[//]: # ()
+[//]: # (DF [here]&#40;https://zenodo.org/record/4835108#.YnDIb3YzZhE&#41;)
 
-For ASVspoof 2021 dataset keys (labels) and metadata are available [here](https://www.asvspoof.org/index2021.html)
+[//]: # ()
+[//]: # (For ASVspoof 2021 dataset keys &#40;labels&#41; and metadata are available [here]&#40;https://www.asvspoof.org/index2021.html&#41;)
 
 ## Pre-trained wav2vec 2.0 XLSR (300M)
 Download the XLSR models from [here](https://github.com/pytorch/fairseq/tree/main/examples/wav2vec/xlsr)
@@ -36,4 +40,6 @@ Download the XLSR models from [here](https://github.com/pytorch/fairseq/tree/mai
 cd myresult
 python test_dual.py
 ```  
+## Statement
+The complete code of the subsequent training will be added after the successful publication of the paper. Thank you for your attention.
 
